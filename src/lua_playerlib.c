@@ -234,10 +234,16 @@ static int player_get(lua_State *L)
 		lua_pushinteger(L, plr->lastpickupdistance);
 	else if (fastcmp(field,"lastpickuptype"))
 		lua_pushinteger(L, plr->lastpickuptype);
+	else if (fastcmp(field,"currentwaypoint"))
+		LUA_PushUserdata(L, plr->currentwaypoint, META_WAYPOINT);
+	else if (fastcmp(field,"nextwaypoint"))
+		LUA_PushUserdata(L, plr->nextwaypoint, META_WAYPOINT);
 	else if (fastcmp(field,"airtime"))
 		lua_pushinteger(L, plr->airtime);
 	else if (fastcmp(field,"lastairtime"))
 		lua_pushinteger(L, plr->lastairtime);
+	else if (fastcmp(field,"bigwaypointgap"))
+		lua_pushinteger(L, plr->bigwaypointgap);
 	else if (fastcmp(field,"flashing"))
 		lua_pushinteger(L, plr->flashing);
 	else if (fastcmp(field,"spinouttimer"))
@@ -296,7 +302,9 @@ static int player_get(lua_State *L)
 		lua_pushinteger(L, plr->gateSound);
 	else if (fastcmp(field,"startboost"))
 		lua_pushinteger(L, plr->startboost);
-	else if (fastcmp(field,"aizdriftstraft"))
+	else if (fastcmp(field,"dropdashboost"))
+		lua_pushinteger(L, plr->dropdashboost);
+	else if (fastcmp(field,"aizdriftstrat"))
 		lua_pushinteger(L, plr->aizdriftstrat);
 	else if (fastcmp(field,"aizdriftextend"))
 		lua_pushinteger(L, plr->aizdriftextend);
@@ -795,15 +803,17 @@ static int player_set(lua_State *L)
 	else if (fastcmp(field,"positiondelay"))
 		plr->positiondelay = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"distancetofinish"))
-		return NOSET;
+		plr->distancetofinish = luaL_checkfixed(L, 3);
 	else if (fastcmp(field,"distancetofinishprev"))
-		return NOSET;
+		plr->distancetofinishprev = luaL_checkfixed(L, 3);
 	else if (fastcmp(field,"lastpickupdistance"))
 		plr->lastpickupdistance = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"airtime"))
 		plr->airtime = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"lastairtime"))
 		plr->lastairtime = luaL_checkinteger(L, 3);
+	else if (fastcmp(field,"bigwaypointgap"))
+		plr->bigwaypointgap = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"flashing"))
 		plr->flashing = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"spinouttimer"))
@@ -862,7 +872,9 @@ static int player_set(lua_State *L)
 		plr->gateSound = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"startboost"))
 		plr->startboost = luaL_checkinteger(L, 3);
-	else if (fastcmp(field,"aizdriftstraft"))
+	else if (fastcmp(field,"dropdashboost"))
+		plr->dropdashboost = luaL_checkinteger(L, 3);
+	else if (fastcmp(field,"aizdriftstrat"))
 		plr->aizdriftstrat = luaL_checkinteger(L, 3);
 	else if (fastcmp(field,"aizdrifttilt"))
 		plr->aizdrifttilt = luaL_checkinteger(L, 3);
@@ -1379,81 +1391,162 @@ static int ticcmd_set(lua_State *L)
 
 #undef NOFIELD
 
-// Same shit for player.respawn variable... Why is everything in different sub-variables again now???
-#define RNOFIELD luaL_error(L, LUA_QL("respawnvars_t") " has no field named " LUA_QS, field)
-#define RUNIMPLEMENTED luaL_error(L, LUA_QL("respawnvars_t") " unimplemented field " LUA_QS " cannot be read or set.", field)
-// @TODO: Waypoints in Lua possibly maybe? No don't count on me to do it...
+enum sonicloopvars {
+	sonicloopvars_radius = 0,
+	sonicloopvars_revolution,
+	sonicloopvars_min_revolution,
+	sonicloopvars_max_revolution,
+	sonicloopvars_yaw,
+	sonicloopvars_origin_x,
+	sonicloopvars_origin_y,
+	sonicloopvars_origin_z,
+	sonicloopvars_origin_shift_x,
+	sonicloopvars_origin_shift_y,
+	sonicloopvars_shift_x,
+	sonicloopvars_shift_y,
+	sonicloopvars_flip,
+	sonicloopvars_camera,
+};
 
-static int respawn_get(lua_State *L)
+static const char *const sonicloopvars_opt[] = {
+	"radius",
+	"revolution",
+	"min_revolution",
+	"max_revolution",
+	"yaw",
+	"origin_x",
+	"origin_y",
+	"origin_z",
+	"origin_shift_x",
+	"origin_shift_y",
+	"shift_x",
+	"shift_y",
+	"flip",
+	"camera",
+	NULL
+};
+
+static int sonicloopvars_get(lua_State *L)
 {
-	respawnvars_t *rsp = *((respawnvars_t **)luaL_checkudata(L, 1, META_RESPAWN));
-	const char *field = luaL_checkstring(L, 2);
-	if (!rsp)
-		return LUA_ErrInvalid(L, "player_t");
+	sonicloopvars_t *sonicloopvars = *((sonicloopvars_t **)luaL_checkudata(L, 1, META_SONICLOOPVARS));
+	enum sonicloopvars field = luaL_checkoption(L, 2, NULL, sonicloopvars_opt);
 
-	if (fastcmp(field,"state"))
-		lua_pushinteger(L, rsp->state);
-	else if (fastcmp(field,"waypoint"))
-		return RUNIMPLEMENTED;
-	else if (fastcmp(field,"pointx"))
-		lua_pushfixed(L, rsp->pointx);
-	else if (fastcmp(field,"pointy"))
-		lua_pushfixed(L, rsp->pointy);
-	else if (fastcmp(field,"pointz"))
-		lua_pushfixed(L, rsp->pointz);
-	else if (fastcmp(field,"flip"))
-		lua_pushboolean(L, rsp->flip);
-	else if (fastcmp(field,"timer"))
-		lua_pushinteger(L, rsp->timer);
-	else if (fastcmp(field,"distanceleft"))
-		lua_pushinteger(L, rsp->distanceleft);	// Can't possibly foresee any problem when pushing UINT32 to Lua's INT32 hahahahaha, get ready for dumb hacky shit on high distances.
-	else if (fastcmp(field,"dropdash"))
-		lua_pushinteger(L, rsp->dropdash);
-	else
-		return RNOFIELD;
+	// This should always be valid.
+	I_Assert(sonicloopvars != NULL);
 
+	switch (field)
+	{
+	case sonicloopvars_radius:
+		lua_pushfixed(L, sonicloopvars->radius);
+		break;
+	case sonicloopvars_revolution:
+		lua_pushfixed(L, sonicloopvars->revolution);
+		break;
+	case sonicloopvars_min_revolution:
+		lua_pushfixed(L, sonicloopvars->min_revolution);
+		break;
+	case sonicloopvars_max_revolution:
+		lua_pushfixed(L, sonicloopvars->max_revolution);
+		break;
+	case sonicloopvars_yaw:
+		lua_pushangle(L, sonicloopvars->yaw);
+		break;
+	case sonicloopvars_origin_x:
+		lua_pushfixed(L, sonicloopvars->origin.x);
+		break;
+	case sonicloopvars_origin_y:
+		lua_pushfixed(L, sonicloopvars->origin.y);
+		break;
+	case sonicloopvars_origin_z:
+		lua_pushfixed(L, sonicloopvars->origin.z);
+		break;
+	case sonicloopvars_origin_shift_x:
+		lua_pushfixed(L, sonicloopvars->origin_shift.x);
+		break;
+	case sonicloopvars_origin_shift_y:
+		lua_pushfixed(L, sonicloopvars->origin_shift.y);
+		break;
+	case sonicloopvars_shift_x:
+		lua_pushfixed(L, sonicloopvars->shift.x);
+		break;
+	case sonicloopvars_shift_y:
+		lua_pushfixed(L, sonicloopvars->shift.y);
+		break;
+	case sonicloopvars_flip:
+		lua_pushboolean(L, sonicloopvars->flip);
+		break;
+	case sonicloopvars_camera:
+		LUA_PushUserdata(L, &sonicloopvars->camera, META_SONICLOOPCAMVARS);
+		break;
+	}
 	return 1;
 }
 
-static int respawn_set(lua_State *L)
+enum sonicloopcamvars {
+	sonicloopcamvars_enter_tic = 0,
+	sonicloopcamvars_exit_tic,
+	sonicloopcamvars_zoom_in_speed,
+	sonicloopcamvars_zoom_out_speed,
+	sonicloopcamvars_dist,
+	sonicloopcamvars_pan,
+	sonicloopcamvars_pan_speed,
+	sonicloopcamvars_pan_accel,
+	sonicloopcamvars_pan_back,
+};
+
+static const char *const sonicloopcamvars_opt[] = {
+	"enter_tic",
+	"exit_tic",
+	"zoom_in_speed",
+	"zoom_out_speed",
+	"dist",
+	"pan",
+	"pan_speed",
+	"pan_accel",
+	"pan_back",
+	NULL
+};
+
+static int sonicloopcamvars_get(lua_State *L)
 {
-	respawnvars_t *rsp = *((respawnvars_t **)luaL_checkudata(L, 1, META_RESPAWN));
-	const char *field = luaL_checkstring(L, 2);
-	if (!rsp)
-		return LUA_ErrInvalid(L, "respawnvars_t");
+	sonicloopcamvars_t *sonicloopcamvars = *((sonicloopcamvars_t **)luaL_checkudata(L, 1, META_SONICLOOPCAMVARS));
+	enum sonicloopcamvars field = luaL_checkoption(L, 2, NULL, sonicloopcamvars_opt);
 
-	if (hud_running)
-		return luaL_error(L, "Do not alter player_t in HUD rendering code!");
-	if (hook_cmd_running)
-		return luaL_error(L, "Do not alter player_t in CMD building code!");
+	// This should always be valid.
+	I_Assert(sonicloopcamvars != NULL);
 
-	if (fastcmp(field,"state"))
-		rsp->state = (UINT8)luaL_checkinteger(L, 3);
-	else if (fastcmp(field,"waypoint"))
-		return RUNIMPLEMENTED;
-	else if (fastcmp(field,"pointx"))
-		rsp->pointx = luaL_checkfixed(L, 3);
-	else if (fastcmp(field,"pointy"))
-		rsp->pointy = luaL_checkfixed(L, 3);
-	else if (fastcmp(field,"pointz"))
-		rsp->pointz = luaL_checkfixed(L, 3);
-	else if (fastcmp(field,"flip"))
-		rsp->flip = luaL_checkboolean(L, 3);
-	else if (fastcmp(field,"timer"))
-		rsp->timer = (tic_t)luaL_checkinteger(L, 3);
-	else if (fastcmp(field,"distanceleft"))
-		rsp->distanceleft = (UINT32)luaL_checkinteger(L, 3);
-	else if (fastcmp(field,"dropdash"))
-		rsp->dropdash = (tic_t)luaL_checkinteger(L, 3);
-	else
-		return RNOFIELD;
-
-	return 0;
+	switch (field)
+	{
+	case sonicloopcamvars_enter_tic:
+		lua_pushinteger(L, sonicloopcamvars->enter_tic);
+		break;
+	case sonicloopcamvars_exit_tic:
+		lua_pushinteger(L, sonicloopcamvars->exit_tic);
+		break;
+	case sonicloopcamvars_zoom_in_speed:
+		lua_pushinteger(L, sonicloopcamvars->zoom_in_speed);
+		break;
+	case sonicloopcamvars_zoom_out_speed:
+		lua_pushinteger(L, sonicloopcamvars->zoom_out_speed);
+		break;
+	case sonicloopcamvars_dist:
+		lua_pushfixed(L, sonicloopcamvars->dist);
+		break;
+	case sonicloopcamvars_pan:
+		lua_pushangle(L, sonicloopcamvars->pan);
+		break;
+	case sonicloopcamvars_pan_speed:
+		lua_pushfixed(L, sonicloopcamvars->pan_speed);
+		break;
+	case sonicloopcamvars_pan_accel:
+		lua_pushinteger(L, sonicloopcamvars->pan_accel);
+		break;
+	case sonicloopcamvars_pan_back:
+		lua_pushinteger(L, sonicloopcamvars->pan_back);
+		break;
+	}
+	return 1;
 }
-
-#undef RNOFIELD
-#undef RUNIMPLEMENTED
-
 
 int LUA_PlayerLib(lua_State *L)
 {
@@ -1477,14 +1570,6 @@ int LUA_PlayerLib(lua_State *L)
 
 		lua_pushcfunction(L, karthud_len);
 		lua_setfield(L, -2, "__len");
-	lua_pop(L,1);
-
-	luaL_newmetatable(L, META_RESPAWN);
-		lua_pushcfunction(L, respawn_get);
-		lua_setfield(L, -2, "__index");
-
-		lua_pushcfunction(L, respawn_set);
-		lua_setfield(L, -2, "__newindex");
 	lua_pop(L,1);
 
 	luaL_newmetatable(L, META_TICCMD);
