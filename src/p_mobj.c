@@ -1803,10 +1803,14 @@ void P_XYMovement(mobj_t *mo)
 					// Ballhog dies on contact with walls
 					if (mo->type == MT_BALLHOG)
 					{
-						S_StartSound(mo, mo->info->deathsound);
-						P_KillMobj(mo, NULL, NULL, DMG_NORMAL);
-						return;
-					}
+						//S_StartSound(mo, mo->info->deathsound);
+						//P_KillMobj(mo, NULL, NULL, DMG_NORMAL);
+						//return;
+						//CONS_Printf(
+						//	"Ballhog bounF:\RingRacers\src\p_mobj.cced off wall at speed %f\n",
+						//	FIXED_TO_FLOAT(FixedHypot(mo->momx, mo->momy))
+						//);
+					} 
 					// Bump sparks
 					else if (mo->type == MT_ORBINAUT || mo->type == MT_GACHABOM)
 					{
